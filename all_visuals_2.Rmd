@@ -1,0 +1,506 @@
+---
+title: "PPOL 646 data visualizations"
+author: "Nathalie Kirsch"
+date: "2022-11-14"
+output: html_document
+urlcolor: blue
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r include = FALSE}
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\n \\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
+```
+
+### PPOL 646 | Assignments
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(readxl)
+```
+
+### Assignment 01
+```{r}
+#Load in dividing lines dataset from Urban
+dividing_lines <- read.csv("sabbdy_ordered_covs.csv")
+
+#View(dividing_lines)
+
+#Explore data
+summary(dividing_lines$teach_sh12yra)
+summary(dividing_lines$teach_sh12yrb)
+summary(dividing_lines$perfrla)
+summary(dividing_lines$perfrlb)
+
+#Filter to chosen variables, drop rows with missing values
+schools <- dividing_lines %>%
+  filter(stabbr == "MD",
+         level == 2) %>%
+  select(teach_sh12yra, teach_sh12yrb, perfrla, perfrlb) %>%
+  drop_na()
+
+#Transform data
+schools_2 <- cbind(stack(schools[1:2]), stack(schools[3:4])) %>%
+  rename(teach_sh12yr = 1,
+         sch_type = 2,
+         perfrl = 3) %>%
+  select(!ind)
+
+#View(schools_2)
+
+#Plot data
+ggplot(data = schools_2,
+       mapping = aes(x = perfrl,
+                     y = teach_sh12yr,
+                     color = sch_type)) +
+  geom_point(shape = 16) +
+  scale_color_manual(name = "School Type",
+                     values = c("teach_sh12yra" = "#FF5872",
+                                "teach_sh12yrb" = "#00D5E9"),
+                     labels = c("teach_sh12yra" = "A - higher minority area",
+                                "teach_sh12yrb" = "B - lower minority area")) +
+  scale_y_continuous(breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6)) +
+  labs(title = paste("Share of Free and Reduced Lunch vs. Share of New Teachers",
+                     "in \nMaryland Public Middle Schools, SY 2018-19"),
+       subtitle = paste("Schools with a higher share of students receiving free and",
+       "reduced lunch tend to have a \nhigher share of new teachers",
+       "\n",
+       "\nNote: Type A schools are on the side of the attendance boundary",
+       "with more racial minority \nstudents, and type B schools",
+       "are on the side with fewer racial minority students"),
+       caption = "Source: Urban Institute, Dividing Lines",
+       x = "Share of Students Receiving Free and Reduced Lunch",
+       y = "Share of Teachers\nin their 1st or 2nd Year of Teaching") +
+  theme_minimal() +
+  theme(plot.title = element_text(face="bold")) +
+  theme(legend.position = "bottom")
+```
+
+### Assignment 02
+```{r}
+#Filter to chosen variables, drop rows with missing values
+schools <- dividing_lines %>%
+  filter(stabbr == "MD") %>%
+  select(level, advtracka, advtrackb) %>%
+  drop_na()
+
+#View(schools)
+
+#Transform data
+schools_2 <- cbind(stack(schools[1]), stack(schools[2:3])) %>%
+  rename(sch_level = 1,
+         advtrack = 3,
+         sch_type = 4) %>%
+  mutate(sch_type = case_when (
+    sch_type == "advtracka" ~ "A",
+    sch_type == "advtrackb" ~ "B")) %>%
+  mutate(sch_level = case_when (
+    sch_level == 1 ~ "Elementary",
+    sch_level == 2 ~ "Middle",
+    sch_level == 3 ~ "High")) %>%
+  select(!ind)
+
+#View(schools_2)  
+
+schools_2$sch_level.fac <- factor(schools_2$sch_level, 
+                    levels = c("Elementary", "Middle", "High"))
+
+#Plot the data
+schools_2 %>%
+  ggplot() +
+  geom_boxplot(mapping = aes(x = sch_level.fac,
+                             y = advtrack,
+                             color = sch_type,
+                             fill = sch_type),
+               alpha = 0.6,
+               width = 0.8,
+               shape = 16) +
+  scale_color_manual(name = "School Type",
+                     values = c("A" = "#DD3916",
+                                "B" = "#16B0DD"),
+                     labels = c("A" = "A - higher minority area",
+                                "B" = "B - lower minority area")) +
+  scale_fill_manual(name = "School Type",
+                     values = c("A" = "#DD3916",
+                                "B" = "#16B0DD"),
+                     labels = c("A" = "A - higher minority area",
+                                "B" = "B - lower minority area")) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title = paste("Average Number of Students in Advanced Tracking Programs per year",
+                     "\nin Maryland Public Schools, SY 2018-19"),
+       subtitle = paste("Type B schools have more students in advanced tracking",
+                        "programs than type A schools",
+                        "\n",
+                        "\nNote: Type A schools are on the side of the attendance boundary",
+                        "with more racial minority \nstudents, and type B schools",
+                        "are on the side with fewer racial minority students"),
+       caption = "Source: Urban Institute, Dividing Lines",
+       x = "School Level",
+       y = "Average Number of Students in\nAdvanced Tracking Programs per Year") +
+  theme_minimal() +
+  theme(plot.title = element_text(face="bold")) +
+  theme(legend.position = "bottom")
+```
+
+### Assignment 03
+```{r}
+##Plot 1
+
+#Transform dataset for first plot - racial differences by school level and type
+
+schools_1a <- dividing_lines %>%
+  filter(stabbr == "MD") %>%
+  select(level,  
+         black_enra, black_enrb,
+         hispa_enra, hispa_enrb,
+         white_enra, white_enrb,
+         asian_enra, asian_enrb,
+         pop_enra, pop_enrb) %>%
+  drop_na()
+
+#View(schools_1a)
+
+schools_1b <- cbind(stack(schools_1a[1]), 
+                    stack(schools_1a[2:3]),
+                    stack(schools_1a[4:5]),
+                    stack(schools_1a[6:7]),
+                    stack(schools_1a[8:9]),
+                    stack(schools_1a[10:11])) %>%
+  rename(sch_level = 1,
+         ind_1 = 2,
+         black = 3,
+         sch_type = 4,
+         hisp = 5,
+         ind_2 = 6,
+         white = 7,
+         ind_3 = 8,
+         asian = 9,
+         ind_4 = 10,
+         pop = 11) %>%
+  mutate(sch_type = case_when (
+    sch_type == "black_enra" ~ "A",
+    sch_type == "black_enrb" ~ "B")) %>%
+  mutate(sch_level = case_when (
+    sch_level == 1 ~ "Elementary",
+    sch_level == 2 ~ "Middle",
+    sch_level == 3 ~ "High")) %>%
+  select(sch_level, sch_type, black, hisp, white, asian, pop)
+
+#View(schools_1b) 
+
+schools_1b$sch <- paste0(as.character(schools_1b$sch_level),
+                         "_",
+                         as.character(schools_1b$sch_type))
+
+schools_1c <- schools_1b %>% 
+  select(sch, black, hisp, white, asian, pop) %>%
+  group_by(sch) %>%
+  summarize(black_pct = sum(black)/sum(pop)*100,
+            hisp_pct = sum(hisp)/sum(pop)*100,
+            white_pct = sum(white)/sum(pop)*100,
+            asian_pct = sum(asian)/sum(pop)*100,
+            total = black_pct + hisp_pct + white_pct + asian_pct,
+            other_pct = 100-total) %>%
+  select(!total)
+
+#View(schools_1c)
+
+schools_plot1 <- schools_1c %>% 
+  pivot_longer(names_to = "race",
+               values_to = "pct",
+               2:6) 
+
+#View(schools_plot1)
+
+#Create first plot
+schools_plot1$sch.fac <- factor(schools_plot1$sch, 
+                                levels = c("Elementary_A", "Elementary_B",
+                                           "Middle_A", "Middle_B",
+                                           "High_A", "High_B"))
+schools_plot1$sch.fac <- fct_rev(schools_plot1$sch.fac)
+
+schools_plot1$race.fac <- factor(schools_plot1$race, 
+                                 levels = c("black_pct", "hisp_pct",
+                                            "white_pct", "asian_pct",
+                                            "other_pct"))
+schools_plot1$race.fac <- fct_rev(schools_plot1$race.fac)
+
+ggplot(data = schools_plot1,
+       aes(x = sch.fac,
+           y = pct,
+           fill = race.fac)) +
+  geom_bar(stat = "identity",
+           width = 0.3) +
+  theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+  geom_text(aes(label = round(pct,0)),
+            position = position_stack(vjust = 0.5),
+            size = 3) +
+  coord_flip() +
+  scale_fill_manual(name = "Race",
+                    values = c("black_pct" = "#C2AED4",
+                               "hisp_pct" = "#F9DF9F",
+                               "white_pct" = "#BCCDF9",
+                               "asian_pct" = "#ABDFC4",
+                               "other_pct" = "#E0B2C7"),
+                    labels = c("black_pct" = "Black",
+                               "hisp_pct" = "Hispanic",
+                               "white_pct" = "White",
+                               "asian_pct" = "Asian",
+                               "other_pct" = "Other")) +
+  labs(title = paste("Race of Students in Maryland Public Schools by School Level and \nType,",
+                     "SY 2018-19"),
+       subtitle = paste("Note: Type A schools are on the side of the attendance boundary",
+                        "with more racial minority \nstudents, and type B schools",
+                        "are on the side with fewer racial minority students"),
+       caption = "Source: Urban Institute, Dividing Lines") +
+  theme_minimal() +
+  theme(plot.title = element_text(face="bold")) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_blank(),
+        panel.background = element_blank()) +
+  theme(legend.position = "bottom")
+
+
+##Plot 2
+
+#Transform dataset for second plot - achievement by school level, type, and boundary equality
+
+schools_2a <- dividing_lines %>%
+  filter(stabbr == "MD") %>%
+  select(level, uneqbdy, achvmnta, achvmntb) %>%
+  drop_na()
+
+#View(schools_2a)
+
+schools_plot2 <- cbind(stack(schools_2a[1]),
+                       stack(schools_2a[2]),
+                       stack(schools_2a[3:4])) %>%
+  rename(sch_level = 1,
+         ind_1 = 2,
+         uneqbdy = 3,
+         ind_2 = 4,
+         achvmnt = 5,
+         sch_type = 6) %>%
+  mutate(sch_type = case_when (
+    sch_type == "achvmnta" ~ "A",
+    sch_type == "achvmntb" ~ "B")) %>%
+  mutate(sch_level = case_when (
+    sch_level == 1 ~ "Elementary School",
+    sch_level == 2 ~ "Middle School",
+    sch_level == 3 ~ "High School")) %>%
+  mutate(uneqbdy = case_when(
+    uneqbdy == 0 ~ "Equal Boundary",
+    uneqbdy == 1 ~ "Unequal Boundary")) %>%
+  select(sch_level, sch_type, uneqbdy, achvmnt)
+
+#View(schools_plot2) 
+
+schools_plot2$sch <- paste0(as.character(schools_plot2$sch_level),
+                            "_",
+                            as.character(schools_plot2$sch_type))
+
+ggplot(data = schools_plot2,
+       mapping = aes(x = achvmnt)) +
+  geom_freqpoly(mapping = aes(color = sch_type),
+                bins = 8) +
+  facet_wrap(sch_level~uneqbdy, scales = "free_y") +
+  scale_color_manual(name = "School Type",
+                     values = c("A" = "#DD3916",
+                                "B" = "#16B0DD"),
+                     labels = c("A" = "A - higher minority area",
+                                "B" = "B - lower minority area")) +
+  scale_fill_manual(name = "School Type",
+                    values = c("A" = "#DD3916",
+                               "B" = "#16B0DD"),
+                    labels = c("A" = "A - higher minority area",
+                               "B" = "B - lower minority area")) +
+  labs(title = paste("Students in Maryland Public Schools by School Level",
+                     "and Whether the \nAttendance Boundary is Racially Equal,",
+                     "SY 2018-19"),
+       subtitle = paste("Students in type B schools generally outperform students in", 
+                        "type A schools, but the discrepancy \nis greater in schools with",
+                        "more racially unequal attendance boundaries",
+                        "\n \nNotes",
+                        "\n[1]: Type A schools are on the side of the attendance boundary",
+                        "with more racial minority \nstudents, and type B schools",
+                        "are on the side with fewer racial minority students",
+                        "\n[2]: The y axis scales differ in this visualization",
+                        "due to varying numbers of schools in each group"),
+       caption = "Source: Urban Institute, Dividing Lines",
+       x = paste0("Average Level of Student Achievement on State Standardized Exams", 
+                  "\n(in Standard Deviations)"), 
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(face="bold")) +
+  theme(strip.background = element_blank(),
+        legend.title = element_blank()) +
+  theme(legend.position = "bottom")
+```
+
+### Assignment 04
+```{r}
+spending <- read_excel("State-by-State Spending on Kids.xlsx", sheet = "PK12ed_realperch")
+
+#View(spending)
+
+#Pivot wide to long
+spending_long <- spending %>%
+  pivot_longer(names_to = "year",
+               values_to = "PK12ed_realperch",
+               2:21)
+
+#View(spending_long)
+
+#Line graph of PK12ed_realperch by state over time
+#PK12ed_realperch is "elementary and secondary education expenditures per child, in $2016"
+
+midatlantic <- c("District of Columbia", "Maryland", "Virginia",
+                 "Delaware", "New Jersey", "West Virginia",
+                 "Pennsylvania", "New York")
+
+spending.midatlantic <- filter(spending_long,
+                               state %in% midatlantic)
+
+spending.md <- filter(spending_long,
+                      state == "Maryland")
+
+spending.2016 <- filter(spending_long,
+                        state %in% midatlantic,
+                        year == 2016) %>%
+  mutate(
+    state = case_when (
+      state == "District of Columbia" ~ "DC",
+      state == "Maryland" ~ "MD",
+      state == "Virginia" ~ "VA",
+      state == "Delaware" ~ "DE",
+      state == "New Jersey" ~ "NJ",
+      state == "West Virginia" ~ "WV",
+      state == "Pennsylvania" ~ "PA",
+      state == "New York" ~ "NY")
+  )
+
+#Option 1
+ggplot() +
+  geom_line(data = spending.midatlantic,
+            mapping = aes(x = year,
+                          y = PK12ed_realperch,
+                          group = state),
+            color = "gray",
+            size = 0.8) +
+  geom_line(data = spending.md,
+            mapping = aes(x = year,
+                          y = PK12ed_realperch,
+                          group = state),
+            color = "red",
+            size = 0.8) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title = paste("Maryland's PK-12 education spending", 
+                      "is low for Mid-Atlantic states"),
+       subtitle = paste("Expenditures represent state spending per student on elementary",
+                        "and secondary \neducation standardized to $2016",
+                        "for Maryland, Virginia, D.C., Delaware, New Jersey,",
+                        "\nWest Virginia, Pennsylvania, and New York"),
+       caption = "Source: Urban Institute, State-by-State Spending on Kids",
+       y = "PK-12 Expenditures Per Child \n(in $2016)",
+       x = "Year") +
+  ggrepel::geom_label_repel(data = spending.2016,
+                            mapping = aes(x = year,
+                                          y = PK12ed_realperch,
+                                          label = state), 
+                            nudge_x = 1,
+                            na.rm = TRUE) +
+  theme_minimal() +
+  theme(panel.spacing = unit(1.5, "lines"),
+        axis.title.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_line(linetype = "dotted",
+                                          size = 0.5,
+                                          color = "gray"),
+        axis.line.x = element_line(linetype = "solid")) +
+  theme(plot.title = element_text(face="bold"))
+
+#Option 2
+ggplot() +
+  geom_line(data = spending.midatlantic,
+            mapping = aes(x = year,
+                          y = PK12ed_realperch,
+                          group = state,
+                          color = state),
+            size = 0.8) +
+  scale_color_manual(name = "State",
+                    values = c("West Virginia" = "#016F4E",
+                               "Pennsylvania" = "#FFCF00",
+                               "New Jersey" = "#DD6021",
+                               "District of Columbia" = "#E81436",
+                               "Virginia" = "#604830",
+                               "New York" = "#002873",
+                               "Maryland" = "#9F1D31",
+                               "Delaware" = "#669EA6")) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title = paste("Maryland's PK-12 education spending", 
+                     "is low for Mid-Atlantic states"),
+       subtitle = paste("Expenditures represent state spending per student on elementary",
+                        "and secondary \neducation standardized to $2016",
+                        "for Maryland, Virginia, D.C., Delaware, New Jersey,",
+                        "\nWest Virginia, Pennsylvania, and New York"),
+       caption = "Source: Urban Institute, State-by-State Spending on Kids",
+       y = "PK-12 Expenditures Per Child \n(in $2016)",
+       x = "Year") +
+  theme_minimal() +
+  theme(panel.spacing = unit(1.5, "lines"),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_line(linetype = "dotted",
+                                          size = 0.5,
+                                          color = "gray"),
+        axis.line.x = element_line(linetype = "solid")) +
+  theme(plot.title = element_text(face="bold")) +
+  theme(legend.position = "bottom")
+
+#Heat Map 
+spending.midatlantic$state <- factor(spending.midatlantic$state)
+levels(spending.midatlantic$state)
+
+spending.midatlantic$state <- fct_rev(spending.midatlantic$state)
+levels(spending.midatlantic$state)
+
+ggplot(data = spending.midatlantic,
+       mapping = aes(x = year,
+                     y = state)) + 
+  geom_tile(aes(fill = PK12ed_realperch)) +
+  scale_fill_gradient2(low = "#FFFFB3",
+                       mid = "#FD8D3D",
+                       high = "#B10027",
+                       midpoint = 12000,
+                       limits = c(4000, 20000)) +
+  labs(title = paste("Maryland's PK-12 education spending", 
+                     "is low for Mid-Atlantic states"),
+       subtitle = paste("Expenditures represent state spending per student on elementary",
+                        "and secondary \neducation standardized to $2016",
+                        "for Maryland, Virginia, D.C., Delaware, New Jersey,",
+                        "\nWest Virginia, Pennsylvania, and New York"),
+       caption = "Source: Urban Institute, State-by-State Spending on Kids") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.background = element_blank()) +
+  theme(plot.title = element_text(face="bold"))
+```
