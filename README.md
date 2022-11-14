@@ -1,1 +1,3 @@
+PPOL 646: DATA VISUALIZATION
 
+Github Pages: 
